@@ -623,17 +623,21 @@ install_bootloader() {
   print_info "Install bootloader"
 
   arch_chroot "bootctl --path=/boot install"
+
+  echo ' ' > /boot/loader/loader.conf
   echo 'default arch' >> /mnt/boot/loader/loader.conf
   echo 'timeout 5' >> /mnt/boot/loader/loader.conf
 
   # Get the PARTUUID from the system partition into arch.conf
-  UUID=blkid -s PARTUUID -o value "${MAIN_DISK}${MAIN_DISK_NVME}2"
+  UUID=$(blkid -s PARTUUID -o value "${MAIN_DISK}${MAIN_DISK_NVME}2")
 
   echo 'title Arch Linux' >> /mnt/boot/loader/entries/arch.conf
   echo 'linux /vmlinuz-linux' >> /mnt/boot/loader/entries/arch.conf
   echo 'initrd /intel-ucode.img' >> /mnt/boot/loader/entries/arch.conf
   echo 'initrd /initramfs-linux.img' >> /mnt/boot/loader/entries/arch.conf
   echo "options rd.luks.name=${UUID}=cryptroot root=/dev/mapper/cryptroot rd.luks.options=discard rw quiet splash" >> /mnt/boot/loader/entries/arch.conf
+
+  arch_chroot "bootctl --path=/boot update"
 }
 
 configure_sudo() {
@@ -761,10 +765,8 @@ configure_timezone
 configure_clock
 configure_locale
 configure_mkinitcpio
-configure_systemd_swap
 
 install_bootloader
-configure_bootloader
 
 configure_sudo
 copy_mirrorlist
