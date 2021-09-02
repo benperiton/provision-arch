@@ -757,5 +757,5 @@ setup_user_account
 pull_repo
 stamp_build
 
-unmount_partitions
+#unmount_partitions
 wrap_up
