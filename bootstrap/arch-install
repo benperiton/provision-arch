@@ -52,7 +52,8 @@ KEYMAP="uk"
 ###############################################################################
 # User provided variables
 ###############################################################################
-HOST_NAME="arch-$((1 + RANDOM % 1000)).lan.skund.io"
+HOST_NAME="machine"
+RAND_HOST_NAME="machine-$((1 + RANDOM % 1000)).lan.skund.io"
 KERNEL_VERSION="zen"
 MAIN_DISK="/dev/sda"
 MAIN_DISK_NVME=""
@@ -266,10 +267,10 @@ check_connection() {
 ###############################################################################
 ask_for_hostname() {
   print_title "Hostname"
-  print_title_info "Pick a hostname for this machine.  Press enter to have a random hostname selected."
-  read -rp "Hostname [ex: archlinux]: " HOST_NAME
+  print_title_info "Pick a hostname for this machine.  Press enter to use the randomly generated hostname."
+  read -rp "Hostname [${RAND_HOST_NAME}]: " HOST_NAME
   if [[ $HOST_NAME == "" ]]; then
-    HOST_NAME="arch-$((1 + RANDOM % 1000)).lan.skund.io"
+    HOST_NAME=$RAND_HOST_NAME
   fi
 }
 
