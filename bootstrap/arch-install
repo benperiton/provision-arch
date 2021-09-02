@@ -546,7 +546,7 @@ create_partitions() {
 setup_lvm() {
   print_info "Setting up LVM"
 
-  pvcreate "${MAIN_DISK}2"
+  pvcreate "${MAIN_DISK}${MAIN_DISK_NVME}2"
   vgcreate "vg_main" "${MAIN_DISK}${MAIN_DISK_NVME}2"
 
   if [[ $DUAL_DISK == 0 ]]; then
@@ -555,7 +555,7 @@ setup_lvm() {
     lvcreate -l 40%VG "vg_main" -n lv_home
     lvcreate -l 5%VG "vg_main" -n lv_data
   else
-    pvcreate "${SECOND_DISK}1"
+    pvcreate "${SECOND_DISK}${SECOND_DISK_NVME}1"
     vgcreate "vg_second" "${SECOND_DISK}${SECOND_DISK_NVME}1"
 
     lvcreate -l 10%VG "vg_main" -n lv_var
