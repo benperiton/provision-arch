@@ -40,6 +40,8 @@ KERNEL_VERSION="default"
 DUAL_DISK=0
 MAIN_DISK="/dev/sda"
 SECOND_DISK=""
+MAIN_DISK_NVME=""
+SECOND_DISK_NVME=""
 ROOT_PWD=""
 ANSIBLE_PWD=""
 
@@ -296,6 +298,9 @@ ask_for_main_disk() {
     done
   fi
   MAIN_DISK=$device
+  if [[ MAIN_DISK == *"nvme"* ]]; then
+    MAIN_DISK_NVME="p"
+  fi
 }
 
 ask_for_second_disk() {
@@ -348,6 +353,9 @@ ask_for_second_disk() {
 
   DUAL_DISK=1
   SECOND_DISK=$device
+  if [[ SECOND_DISK == *"nvme"* ]]; then
+    SECOND_DISK_NVME="p"
+  fi
 }
 
 ask_for_kernel_level() {
@@ -539,7 +547,7 @@ setup_lvm() {
   print_info "Setting up LVM"
 
   pvcreate "${MAIN_DISK}2"
-  vgcreate "vg_main" "${MAIN_DISK}2"
+  vgcreate "vg_main" "${MAIN_DISK}${MAIN_DISK_NVME}2"
 
   if [[ $DUAL_DISK == 0 ]]; then
     lvcreate -l 5%VG "vg_main" -n lv_var
@@ -548,7 +556,7 @@ setup_lvm() {
     lvcreate -l 5%VG "vg_main" -n lv_data
   else
     pvcreate "${SECOND_DISK}1"
-    vgcreate "vg_second" "${SECOND_DISK}1"
+    vgcreate "vg_second" "${SECOND_DISK}${SECOND_DISK_NVME}1"
 
     lvcreate -l 10%VG "vg_main" -n lv_var
     lvcreate -l 70%VG "vg_main" -n lv_root
@@ -562,7 +570,7 @@ format_partitions() {
 
   if [[ $UEFI == 1 ]]; then
     # Format the EFI partition
-    mkfs.vfat -F32 "${MAIN_DISK}1"
+    mkfs.vfat -F32 "${MAIN_DISK}${MAIN_DISK_NVME}1"
   fi
 
   # Now the LVM partitions...
@@ -590,7 +598,7 @@ mount_partitions() {
   mkdir -p "/mnt/data"
 
   if [[ $UEFI == 1 ]]; then
-    mount -t vfat -o defaults,rw,relatime,utf8,errors=remount-ro "${MAIN_DISK}1" "/mnt/boot/efi"
+    mount -t vfat -o defaults,rw,relatime,utf8,errors=remount-ro "${MAIN_DISK}${MAIN_DISK_NVME}1" "/mnt/boot/efi"
   fi
 
   # Mount others
