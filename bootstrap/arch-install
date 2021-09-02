@@ -655,7 +655,7 @@ install_bootloader() {
   echo "linux /vmlinuz-linux${kernel}" >> /mnt/boot/loader/entries/arch.conf
   echo "initrd /${VENDOR}-ucode.img" >> /mnt/boot/loader/entries/arch.conf
   echo "initrd /initramfs-linux${kernel}.img" >> /mnt/boot/loader/entries/arch.conf
-  echo "options rd.luks.name=${UUID}=cryptdisk root=/dev/mapper/cryptdisk rw rd.luks.options=discard" >> /mnt/boot/loader/entries/arch.conf
+  echo "options rd.luks.name=${UUID}=cryptdisk root=/dev/mapper/cryptdisk rw quiet splash" >> /mnt/boot/loader/entries/arch.conf
 }
 
 configure_sudo() {
