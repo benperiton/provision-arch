@@ -42,8 +42,8 @@ then execute it with separate steps to ensure maximum security. It's up to you.
      [Arch Wiki](https://wiki.archlinux.org) for steps to initialize a network
      connection.
 1. Download and run the desired script.
-   - For arch-install: `bash <(curl -fsSL https://git.io/vNDOZ)`
-   - For arch-install-encrypted: `bash <(curl -fsSL https://git.io/VNDOn)`
+   - For arch-install: `bash <(curl -fsSL https://git.io/JEAPj)`
+   - For arch-install-encrypted: `bash <(curl -fsSL ??)`
 1. Reboot
 
 ### Section 2 - System Configuration And Application Installation
