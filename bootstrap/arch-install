@@ -298,7 +298,7 @@ ask_for_main_disk() {
     done
   fi
   MAIN_DISK=$device
-  if [[ MAIN_DISK == *"nvme"* ]]; then
+  if [[ $device == *"nvme"* ]]; then
     MAIN_DISK_NVME="p"
   fi
 }
@@ -353,7 +353,7 @@ ask_for_second_disk() {
 
   DUAL_DISK=1
   SECOND_DISK=$device
-  if [[ SECOND_DISK == *"nvme"* ]]; then
+  if [[ $device == *"nvme"* ]]; then
     SECOND_DISK_NVME="p"
   fi
 }
