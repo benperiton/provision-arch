@@ -635,18 +635,18 @@ install_bootloader() {
   echo 'timeout 5' >> /mnt/boot/loader/loader.conf
 
   # Get the PARTUUID from the system partition into arch.conf
-  UUID=$(blkid -s PARTUUID -o value "${MAIN_DISK}${MAIN_DISK_NVME}2")
+  UUID=$(blkid -s UUID -o value "${MAIN_DISK}${MAIN_DISK_NVME}2")
 
-  local kernel=''
+  local kernel=""
 
   # TODO: Install multiple kernels
   if [ $KERNEL_VERSION == "default" ]; then
-    kernel=''
-  elif [ $KERNEL_VERSION =='lts' ]; then
-    kernel='-lts'
-  elif [ $KERNEL_VERSION =='hard' ]; then
+    kernel=""
+  elif [ $KERNEL_VERSION == "lts" ]; then
+    kernel="-lts"
+  elif [ $KERNEL_VERSION == "hard" ]; then
     kernel="-hard"
-  elif [ $KERNEL_VERSION =='zen' ]; then
+  elif [ $KERNEL_VERSION == "zen" ]; then
     kernel="-zen"
   fi
 
