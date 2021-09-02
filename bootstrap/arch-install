@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-#
-#
-#
+# 
+# curl -fsSL
+# -f  
+# -s  
+# -S  Silent
+# -L  Follow location
+# 
+# 
 ###############################################################################
 
 # Bash "strict" mode, -o pipefail removed
@@ -208,6 +213,7 @@ check_boot_system() {
     UEFI=1
   else
     UEFI=0
+    error_msg "ERROR! You must execute the script on a machine capable of UEFI."
   fi
 }
 
@@ -442,21 +448,14 @@ wipe_disks() {
 create_partitions() {
   print_info "Creating partitions"
 
-  print_status "    Main disk"
   # Clear out the partitions
   sgdisk -g --zap "$MAIN_DISK"
 
-  if [[ $UEFI == 1 ]]; then
-    # EFI partition (500mb)
-    sgdisk -g -n 1:2048:1026047 -c 1:"EFI" -t 1:ef00 "$MAIN_DISK"
-    # The rest of the disk is for LVM
-    sgdisk -g -n 2:1026048:0 -c 2:"LVM" -t 2:8e00 "$MAIN_DISK"
-  else
-    # BIOS partition (1mb)
-    sgdisk -g -n 1:2048:4095 -c 1:"BIOS" -t 1:ef02 "$MAIN_DISK"
-    # The rest of the disk is for LVM
-    sgdisk -g -n 2:4096:0 -c 2:"LVM" -t 2:8e00 "$MAIN_DISK"
-  fi
+  # EFI partition (500mb)
+  sgdisk -g -n 1:2048:1026047 -c 1:"EFI" -t 1:ef00 "$MAIN_DISK"
+
+  # The rest of the disk is for LVM
+  sgdisk -g -n 2:1026048:0 -c 2:"LVM" -t 2:8e00 "$MAIN_DISK"
 
   partprobe 2>/dev/null || true
 }
@@ -479,23 +478,21 @@ setup_lvm() {
 format_partitions() {
   print_info "Formatting partitions"
 
-  if [[ $UEFI == 1 ]]; then
-    # Format the EFI partition
-    mkfs.vfat -F32 "${MAIN_DISK}${MAIN_DISK_NVME}1"
-  fi
-
+  # Format the EFI partition
+  mkfs.vfat -F32 "${MAIN_DISK}${MAIN_DISK_NVME}1"
+  
   # Now the LVM partitions...
-  mkswap "/dev/mapper/MainVG/swap"
-  mkfs.ext4 "/dev/mapper/MainVG/var"
-  mkfs.ext4 "/dev/mapper/MainVG/root"
-  mkfs.ext4 "/dev/mapper/MainVG/home"
+  mkswap "/dev/mapper/MainVG-swap"
+  mkfs.ext4 "/dev/mapper/MainVG-var"
+  mkfs.ext4 "/dev/mapper/MainVG-root"
+  mkfs.ext4 "/dev/mapper/MainVG-home"
 }
 
 mount_partitions() {
   print_info "Mounting partitions"
 
   # First load the root
-  mount -t ext4 -o defaults,rw,relatime,errors=remount-ro /dev/mapper/MainVG/root /mnt
+  mount -t ext4 -o defaults,rw,relatime,errors=remount-ro /dev/mapper/MainVG-root /mnt
 
   # Create the paths for the other mounts
   mkdir -p "/mnt/boot"
@@ -507,9 +504,9 @@ mount_partitions() {
   fi
 
   # Mount others
-  mount -t ext4 -o defaults,rw,relatime /dev/mapper/MainVG/var /mnt/var
-  mount -t ext4 -o defaults,rw,relatime /dev/mapper/MainVG/home /mnt/home
-  swapon /dev/mapper/MainVG/swap
+  mount -t ext4 -o defaults,rw,relatime /dev/mapper/MainVG-var /mnt/var
+  mount -t ext4 -o defaults,rw,relatime /dev/mapper/MainVG-home /mnt/home
+  swapon /dev/mapper/MainVG-swap
 }
 
 install_base_system() {
@@ -630,7 +627,7 @@ install_bootloader() {
   echo 'timeout 5' >> /mnt/boot/loader/loader.conf
 
   # Get the PARTUUID from the system partition into arch.conf
-  UUID=blkid -s PARTUUID -o value "${MAIN_DISK}${MAIN_DISK_NVME}2" >> /boot/loader/entries/arch.conf
+  UUID=blkid -s PARTUUID -o value "${MAIN_DISK}${MAIN_DISK_NVME}2"
 
   echo 'title Arch Linux' >> /mnt/boot/loader/entries/arch.conf
   echo 'linux /vmlinuz-linux' >> /mnt/boot/loader/entries/arch.conf
@@ -764,8 +761,10 @@ configure_timezone
 configure_clock
 configure_locale
 configure_mkinitcpio
+configure_systemd_swap
 
 install_bootloader
+configure_bootloader
 
 configure_sudo
 copy_mirrorlist
