@@ -469,12 +469,12 @@ setup_lvm() {
   cryptsetup luksOpen ${MAIN_DISK}${MAIN_DISK_NVME}2 cryptdisk
 
   pvcreate /dev/mapper/cryptdisk
-  vgcreate "MainVG" /dev/mapper/cryptdisk
+  vgcreate "vg" /dev/mapper/cryptdisk
 
-  lvcreate -L 8GB "MainVG" -n swap
-  lvcreate -l 5%VG "MainVG" -n var
-  lvcreate -l 45%VG "MainVG" -n root
-  lvcreate -l 50%VG "MainVG" -n home
+  lvcreate -L 8GB "vg" -n swap
+  lvcreate -l 5%VG "vg" -n var
+  lvcreate -l 45%VG "vg" -n root
+  lvcreate -l 50%VG "vg" -n home
 }
 
 format_partitions() {
@@ -484,31 +484,29 @@ format_partitions() {
   mkfs.vfat -F32 "${MAIN_DISK}${MAIN_DISK_NVME}1"
   
   # Now the LVM partitions...
-  mkswap "/dev/mapper/MainVG-swap"
-  mkfs.ext4 "/dev/mapper/MainVG-var"
-  mkfs.ext4 "/dev/mapper/MainVG-root"
-  mkfs.ext4 "/dev/mapper/MainVG-home"
+  mkfs.ext4 "/dev/vg/var"
+  mkfs.ext4 "/dev/vg/root"
+  mkfs.ext4 "/dev/vg/home"
+  mkswap "/dev/vg/swap"
 }
 
 mount_partitions() {
   print_info "Mounting partitions"
 
   # First load the root
-  mount -t ext4 -o defaults,rw,relatime,errors=remount-ro /dev/mapper/MainVG-root /mnt
+  mount -t ext4 -o defaults,rw,relatime,errors=remount-ro /dev/vg/root /mnt
 
   # Create the paths for the other mounts
   mkdir -p "/mnt/boot"
   mkdir -p "/mnt/var"
   mkdir -p "/mnt/home"
 
-  if [[ $UEFI == 1 ]]; then
-    mount -t vfat -o defaults,rw,relatime,utf8,errors=remount-ro "${MAIN_DISK}${MAIN_DISK_NVME}1" "/mnt/boot"
-  fi
+  mount -t vfat -o defaults,rw,relatime,utf8,errors=remount-ro "${MAIN_DISK}${MAIN_DISK_NVME}1" "/mnt/boot"
 
   # Mount others
-  mount -t ext4 -o defaults,rw,relatime /dev/mapper/MainVG-var /mnt/var
-  mount -t ext4 -o defaults,rw,relatime /dev/mapper/MainVG-home /mnt/home
-  swapon /dev/mapper/MainVG-swap
+  mount -t ext4 -o defaults,rw,relatime /dev/vg/var /mnt/var
+  mount -t ext4 -o defaults,rw,relatime /dev/vg/home /mnt/home
+  swapon /dev/vg/swap
 }
 
 install_base_system() {
@@ -542,7 +540,7 @@ install_base_system() {
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above."
 
   # Install file system tools
-  pacstrap /mnt dosfstools mtools gptfdisk |& tee -a "${LOG}"
+  pacstrap /mnt lvm2 dosfstools mtools gptfdisk |& tee -a "${LOG}"
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 4."
 
   # Install networking tools
@@ -571,7 +569,7 @@ configure_keymap() {
 configure_fstab() {
   print_info "Write fstab"
 
-  genfstab -pU /mnt >/mnt/etc/fstab
+  genfstab -U /mnt >> /mnt/etc/fstab
 }
 
 configure_hostname() {
@@ -617,7 +615,7 @@ configure_locale() {
 configure_mkinitcpio() {
   print_info "Configuring mkinitcpio"
 
-  sed -i '/^HOOKS/c\HOOKS=(base udev autodetect keyboard keymap modconf block encrypt filesystems fsck)' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
+  sed -i '/^HOOKS/c\HOOKS=(base udev autodetect keyboard keymap modconf block encrypt lvm2 filesystems fsck)' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
 
   # Setup compression
   sed -i 's/#COMPRESSION="lz4"/COMPRESSION="lz4"/' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
@@ -656,7 +654,7 @@ install_bootloader() {
   echo "linux /vmlinuz-linux${kernel}" >> /mnt/boot/loader/entries/arch.conf
   echo "initrd /${VENDOR}-ucode.img" >> /mnt/boot/loader/entries/arch.conf
   echo "initrd /initramfs-linux${kernel}.img" >> /mnt/boot/loader/entries/arch.conf
-  echo "options cryptdevice=PARTUUID=${part_uuid}:cryptdisk root=/dev/mapper/cryptdisk rw quiet splash" >> /mnt/boot/loader/entries/arch.conf
+  echo "options cryptdevice=PARTUUID=${part_uuid}:cryptdisk root=/dev/vg/root rw quiet splash" >> /mnt/boot/loader/entries/arch.conf
 }
 
 configure_sudo() {
