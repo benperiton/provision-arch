@@ -617,7 +617,7 @@ configure_locale() {
 configure_mkinitcpio() {
   print_info "Configuring mkinitcpio"
 
-  sed -i '/^HOOKS/c\HOOKS=(base systemd keyboard keymap sd-vconsole block sd-encrypt lvm2 autodetect modconf filesystems fsck)' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
+  sed -i '/^HOOKS/c\HOOKS=(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt lvm2 filesystems fsck)' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
 
   # Setup compression
   sed -i 's/#COMPRESSION="lz4"/COMPRESSION="lz4"/' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
@@ -655,7 +655,7 @@ install_bootloader() {
   echo "linux /vmlinuz-linux${kernel}" >> /mnt/boot/loader/entries/arch.conf
   echo "initrd /${VENDOR}-ucode.img" >> /mnt/boot/loader/entries/arch.conf
   echo "initrd /initramfs-linux${kernel}.img" >> /mnt/boot/loader/entries/arch.conf
-  echo "options cryptdevice=PARTUUID=${UUID}:cryptdisk root=/dev/mapper/cryptdisk rw quiet splash" >> /mnt/boot/loader/entries/arch.conf
+  echo "options rd.luks.name=${UUID}=cryptdisk root=/dev/mapper/cryptdisk rw rd.luks.options=discard" >> /mnt/boot/loader/entries/arch.conf
 }
 
 configure_sudo() {
