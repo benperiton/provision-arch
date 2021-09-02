@@ -201,7 +201,7 @@ check_archlinux() {
 }
 
 check_vendor() {
-  vendor=$(lscpu | awk '/Vendor ID/{print $3}')
+  vendor=$(lscpu | awk '/^Vendor ID/{print $3}')
   if [[ "$vendor" == "GenuineIntel" ]]; then
      VENDOR='intel'
   elif [[ "$vendor" == "AuthenticAMD" ]]; then
