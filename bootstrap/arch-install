@@ -465,14 +465,15 @@ setup_lvm() {
   print_info "Setting up LVM"
   
   cryptsetup --use-random luksFormat ${MAIN_DISK}${MAIN_DISK_NVME}2
-  cryptsetup luksOpen ${MAIN_DISK}${MAIN_DISK_NVME}2 luks
+  cryptsetup luksOpen ${MAIN_DISK}${MAIN_DISK_NVME}2 cryptroot
 
-  pvcreate /dev/mapper/luks
-  vgcreate "vg_main" /dev/mapper/luks
+  pvcreate /dev/mapper/cryptroot
+  vgcreate "MainVG" /dev/mapper/cryptroot
 
-  lvcreate -l 5%VG "vg_main" -n lv_var
-  lvcreate -l 45%VG "vg_main" -n lv_root
-  lvcreate -l 50%VG "vg_main" -n lv_home
+  lvcreate -L 8GB "MainVG" -n swap
+  lvcreate -l 5%VG "MainVG" -n var
+  lvcreate -l 45%VG "MainVG" -n root
+  lvcreate -l 50%VG "MainVG" -n home
 }
 
 format_partitions() {
@@ -484,29 +485,31 @@ format_partitions() {
   fi
 
   # Now the LVM partitions...
-  mkfs.ext4 "/dev/mapper/vg_main-lv_var"
-  mkfs.ext4 "/dev/mapper/vg_main-lv_root"
-  mkfs.ext4 "/dev/mapper/vg_main-lv_home"
+  mkswap "/dev/mapper/MainVG/swap"
+  mkfs.ext4 "/dev/mapper/MainVG/var"
+  mkfs.ext4 "/dev/mapper/MainVG/root"
+  mkfs.ext4 "/dev/mapper/MainVG/home"
 }
 
 mount_partitions() {
   print_info "Mounting partitions"
 
   # First load the root
-  mount -t ext4 -o defaults,rw,relatime,errors=remount-ro /dev/mapper/vg_main-lv_root /mnt
+  mount -t ext4 -o defaults,rw,relatime,errors=remount-ro /dev/mapper/MainVG/root /mnt
 
   # Create the paths for the other mounts
-  mkdir -p "/mnt/boot/efi"
+  mkdir -p "/mnt/boot"
   mkdir -p "/mnt/var"
   mkdir -p "/mnt/home"
 
   if [[ $UEFI == 1 ]]; then
-    mount -t vfat -o defaults,rw,relatime,utf8,errors=remount-ro "${MAIN_DISK}${MAIN_DISK_NVME}1" "/mnt/boot/efi"
+    mount -t vfat -o defaults,rw,relatime,utf8,errors=remount-ro "${MAIN_DISK}${MAIN_DISK_NVME}1" "/mnt/boot"
   fi
 
   # Mount others
-  mount -t ext4 -o defaults,rw,relatime /dev/mapper/vg_main-lv_var /mnt/var
-  mount -t ext4 -o defaults,rw,relatime /dev/mapper/vg_main-lv_home /mnt/home
+  mount -t ext4 -o defaults,rw,relatime /dev/mapper/MainVG/var /mnt/var
+  mount -t ext4 -o defaults,rw,relatime /dev/mapper/MainVG/home /mnt/home
+  swapon /dev/mapper/MainVG/swap
 }
 
 install_base_system() {
@@ -564,7 +567,7 @@ configure_keymap() {
 configure_fstab() {
   print_info "Write fstab"
 
-  genfstab -U -p /mnt >/mnt/etc/fstab
+  genfstab -pU /mnt >/mnt/etc/fstab
 }
 
 configure_hostname() {
@@ -610,7 +613,7 @@ configure_locale() {
 configure_mkinitcpio() {
   print_info "Configuring mkinitcpio"
 
-  sed -i '/^HOOKS/c\HOOKS=(systemd keyboard autodetect modconf block sd-vconsole sd-encrypt sd-lvm2 filesystems fsck)' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
+  sed -i '/^HOOKS/c\HOOKS=(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt lvm2 filesystems fsck)' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
 
   # Setup compression
   sed -i 's/#COMPRESSION="lz4"/COMPRESSION="lz4"/' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
@@ -619,54 +622,21 @@ configure_mkinitcpio() {
   arch_chroot "mkinitcpio -P"
 }
 
-configure_systemd_swap() {
-  print_info "Configuring systemd-swap"
-
-  arch_chroot "systemctl enable systemd-swap.service"
-
-  arch_chroot 'echo -e "zswap_enabled=1\nzram_enabled=0\nswapfc_enabled=1" > /etc/systemd/swap.conf.d/swap-config.conf'
-}
-
 install_bootloader() {
   print_info "Install bootloader"
 
-  if [[ $UEFI == 1 ]]; then
-    pacstrap /mnt grub os-prober breeze-grub |& tee -a "${LOG}"
-    [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 7."
-  else
-    pacstrap /mnt grub-bios os-prober breeze-grub |& tee -a "${LOG}"
-    [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 8."
-  fi
+  arch_chroot "bootctl --path=/boot install"
+  echo 'default arch' >> /mnt/boot/loader/loader.conf
+  echo 'timeout 5' >> /mnt/boot/loader/loader.conf
 
-  if [[ $UEFI == 1 ]]; then
-    pacstrap /mnt efibootmgr |& tee -a "${LOG}"
-  fi
-}
+  # Get the PARTUUID from the system partition into arch.conf
+  UUID=blkid -s PARTUUID -o value "${MAIN_DISK}${MAIN_DISK_NVME}2" >> /boot/loader/entries/arch.conf
 
-configure_bootloader() {
-  print_info "Configure bootloader"
-
-  if [[ $UEFI == 1 ]]; then
-    arch_chroot "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=grub --recheck"
-  else
-    arch_chroot "grub-install --target=i386-pc --recheck --debug /dev/sda"
-  fi
-
-  # Update grub config
-  sed -i '/^GRUB_TIMEOUT/c\GRUB_TIMEOUT=5' /mnt/etc/default/grub |& tee -a "${LOG}"
-  # shellcheck disable=SC2016
-  sed -i '/^GRUB_DISTRIBUTOR/c\GRUB_DISTRIBUTOR=`lsb_release -i -s 2> /dev/null || echo Arch`' /mnt/etc/default/grub |& tee -a "${LOG}"
-
-  sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT/c\GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"' /mnt/etc/default/grub |& tee -a "${LOG}"
-  
-  sed -i '/^GRUB_GFXMODE/c\GRUB_GFXMODE=1024x768x32,1024x768x24,1024x768,auto' /mnt/etc/default/grub |& tee -a "${LOG}"
-  sed -i '/^GRUB_DISABLE_RECOVERY/c\#GRUB_DISABLE_RECOVERY=true' /mnt/etc/default/grub |& tee -a "${LOG}"
-  sed -i '/^GRUB_THEME/c\GRUB_THEME="/usr/share/grub/themes/breeze/theme.txt"' /mnt/etc/default/grub |& tee -a "${LOG}"
-  sed -i '/^#GRUB_THEME/c\GRUB_THEME="/usr/share/grub/themes/breeze/theme.txt"' /mnt/etc/default/grub |& tee -a "${LOG}"
-  sed -i '/^#GRUB_INIT_TUNE/c\GRUB_INIT_TUNE="480 440 1"' /mnt/etc/default/grub |& tee -a "${LOG}"
-
-  # Make the config
-  arch_chroot "grub-mkconfig -o /boot/grub/grub.cfg"
+  echo 'title Arch Linux' >> /mnt/boot/loader/entries/arch.conf
+  echo 'linux /vmlinuz-linux' >> /mnt/boot/loader/entries/arch.conf
+  echo 'initrd /intel-ucode.img' >> /mnt/boot/loader/entries/arch.conf
+  echo 'initrd /initramfs-linux.img' >> /mnt/boot/loader/entries/arch.conf
+  echo "options rd.luks.name=${UUID}=cryptroot root=/dev/mapper/cryptroot rd.luks.options=discard rw quiet splash" >> /mnt/boot/loader/entries/arch.conf
 }
 
 configure_sudo() {
@@ -794,10 +764,8 @@ configure_timezone
 configure_clock
 configure_locale
 configure_mkinitcpio
-configure_systemd_swap
 
 install_bootloader
-configure_bootloader
 
 configure_sudo
 copy_mirrorlist
