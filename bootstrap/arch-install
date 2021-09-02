@@ -138,9 +138,9 @@ print_summary() {
   print_title_info "Below is a summary of your selections and any auto-detected system information.  If anything is wrong cancel out now with Ctrl-C.  If you continue the installation will begin and there will be no more input required."
   print_line
   if [[ $UEFI == 1 ]]; then
-    print_status "The machine architecture is $SYS_ARCH and UEFI has been found."
+    print_status "The machine architecture is $VENDOR $SYS_ARCH and UEFI has been found."
   else
-    print_status "The machine architecture is $SYS_ARCH and a BIOS has been found."
+    print_status "The machine architecture is $VENDOR $SYS_ARCH and a BIOS has been found."
   fi
 
   print_status "The hostname selected is $HOST_NAME"
