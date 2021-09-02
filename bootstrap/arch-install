@@ -538,7 +538,7 @@ install_base_system() {
 
   # TODO: Check if intel/AMD
   # TODO: Need different files; amd-ucode / intel-ucode
-  pacstrap /mnt intel-ucode |& tee -a "${LOG}"
+  pacstrap /mnt "${VENDOR}-ucode" |& tee -a "${LOG}"
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above."
 
   # Install file system tools
@@ -617,7 +617,7 @@ configure_locale() {
 configure_mkinitcpio() {
   print_info "Configuring mkinitcpio"
 
-  sed -i '/^HOOKS/c\HOOKS=(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt lvm2 filesystems fsck)' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
+  sed -i '/^HOOKS/c\HOOKS=(base systemd keyboard keymap sd-vconsole block sd-encrypt lvm2 autodetect modconf filesystems fsck)' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
 
   # Setup compression
   sed -i 's/#COMPRESSION="lz4"/COMPRESSION="lz4"/' /mnt/etc/mkinitcpio.conf |& tee -a "${LOG}"
@@ -788,5 +788,5 @@ setup_user_account
 pull_repo
 stamp_build
 
-#unmount_partitions
+unmount_partitions
 wrap_up
