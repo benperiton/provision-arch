@@ -464,10 +464,10 @@ setup_lvm() {
   print_info "Setting up LVM"
   
   cryptsetup --use-random luksFormat ${MAIN_DISK}${MAIN_DISK_NVME}2
-  cryptsetup luksOpen ${MAIN_DISK}${MAIN_DISK_NVME}2 cryptroot
+  cryptsetup luksOpen ${MAIN_DISK}${MAIN_DISK_NVME}2 cryptdisk
 
-  pvcreate /dev/mapper/cryptroot
-  vgcreate "MainVG" /dev/mapper/cryptroot
+  pvcreate /dev/mapper/cryptdisk
+  vgcreate "MainVG" /dev/mapper/cryptdisk
 
   lvcreate -L 8GB "MainVG" -n swap
   lvcreate -l 5%VG "MainVG" -n var
@@ -624,8 +624,7 @@ install_bootloader() {
 
   arch_chroot "bootctl --path=/boot install"
 
-  echo ' ' > /boot/loader/loader.conf
-  echo 'default arch' >> /mnt/boot/loader/loader.conf
+  echo 'default arch' > /mnt/boot/loader/loader.conf
   echo 'timeout 5' >> /mnt/boot/loader/loader.conf
 
   # Get the PARTUUID from the system partition into arch.conf
@@ -635,7 +634,7 @@ install_bootloader() {
   echo 'linux /vmlinuz-linux' >> /mnt/boot/loader/entries/arch.conf
   echo 'initrd /intel-ucode.img' >> /mnt/boot/loader/entries/arch.conf
   echo 'initrd /initramfs-linux.img' >> /mnt/boot/loader/entries/arch.conf
-  echo "options rd.luks.name=${UUID}=cryptroot root=/dev/mapper/cryptroot rd.luks.options=discard rw quiet splash" >> /mnt/boot/loader/entries/arch.conf
+  echo "options cryptdevice=${UUID}:cryptdisk root=/dev/mapper/cryptdisk rw splash" >> /mnt/boot/loader/entries/arch.conf
 
   arch_chroot "bootctl --path=/boot update"
 }
