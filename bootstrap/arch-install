@@ -545,9 +545,12 @@ create_partitions() {
 
 setup_lvm() {
   print_info "Setting up LVM"
+  
+  cryptsetup --use-random luksFormat ${MAIN_DISK}${MAIN_DISK_NVME}2
+  cryptsetup luksOpen ${MAIN_DISK}${MAIN_DISK_NVME}2 luks
 
-  pvcreate "${MAIN_DISK}${MAIN_DISK_NVME}2"
-  vgcreate "vg_main" "${MAIN_DISK}${MAIN_DISK_NVME}2"
+  pvcreate /dev/mapper/luks
+  vgcreate "vg_main" /dev/mapper/luks
 
   if [[ $DUAL_DISK == 0 ]]; then
     lvcreate -l 5%VG "vg_main" -n lv_var
