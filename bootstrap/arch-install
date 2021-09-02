@@ -164,6 +164,9 @@ print_summary() {
   print_status "Installing to $MAIN_DISK."
 
   blank_line
+  print_status "Privileged user ${PRIV_USERNAME} will be created with sudo rights."
+
+  blank_line
   pause_function
 }
 
@@ -351,7 +354,7 @@ ask_for_user_account() {
   blank_line
   while [[ $was_set == "false" ]]; do
     local user=""
-    read -srp "Username: " user
+    read -rp "Username: " user
 
     if [[ $user == "" ]]; then
       blank_line
