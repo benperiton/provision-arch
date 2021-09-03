@@ -543,7 +543,7 @@ install_base_system() {
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 4."
 
   # Install networking tools
-  pacstrap /mnt dialog nmcli networkmanager networkmanager-l2tp xl2tpd strongswan networkmanager-strongswan iwd wireless_tools wpa_supplicant wpa_actiond |& tee -a "${LOG}"
+  pacstrap /mnt dialog networkmanager networkmanager-l2tp xl2tpd strongswan networkmanager-strongswan iwd |& tee -a "${LOG}"
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 5."
 
   # Remaining misc tools
@@ -687,6 +687,18 @@ configure_pacman() {
   echo 'Server = http://repo.archlinux.fr/$arch' >> /mnt/etc/pacman.conf
 }
 
+copy_network_config() {
+  print_info "Copying wifi networks (if any)"
+
+  mkdir -p /mnt/var/lib/iwd
+  cp /var/lib/iwd/*.psk /mnt/var/lib/iwd/
+
+  print_info "Copying eth networks (if any)"
+
+  mkdir -p /mnt/etc/systemd/network
+  cp /etc/systemd/network/* /mnt/etc/systemd/network/
+}
+
 pull_repo() {
   print_info "Pulling repo"
   mkdir -p /mnt/srv/provision-arch
@@ -781,6 +793,8 @@ install_bootloader
 configure_sudo
 copy_mirrorlist
 configure_pacman
+
+copy_network_config
 
 setup_user_account
 pull_repo
