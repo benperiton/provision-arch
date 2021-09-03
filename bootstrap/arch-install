@@ -544,11 +544,11 @@ install_base_system() {
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 4."
 
   # Install networking tools
-  pacstrap /mnt dialog networkmanager networkmanager-l2tp xl2tpd strongswan networkmanager-strongswan iw wireless_tools wpa_supplicant wpa_actiond |& tee -a "${LOG}"
+  pacstrap /mnt dialog nmcli networkmanager networkmanager-l2tp xl2tpd strongswan networkmanager-strongswan iw wireless_tools wpa_supplicant wpa_actiond |& tee -a "${LOG}"
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 5."
 
   # Remaining misc tools
-  pacstrap /mnt reflector git nano vim openssh ansible terminus-font ttf-fira-code gnupg zsh xorg |& tee -a "${LOG}"
+  pacstrap /mnt reflector git nano vim openssh ansible terminus-font ttf-fira-code gnupg |& tee -a "${LOG}"
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 6."
 
   # Add the ssh group
@@ -698,7 +698,7 @@ pull_repo() {
 setup_user_account() {
   print_info "Setting up privileged account"
 
-  arch_chroot "useradd -m -G wheel -s /usr/bin/zsh ${PRIV_USERNAME}"
+  arch_chroot "useradd -m -G wheel -s /bin/bash ${PRIV_USERNAME}"
   arch_chroot "echo -n '${PRIV_USERNAME}:${PRIV_PASSWORD}' | chpasswd -c SHA512"
 
   # Add user to the ssh group
