@@ -553,9 +553,13 @@ install_base_system() {
   # Add the ssh group
   arch_chroot "groupadd ssh"
 
+  # Use iwd with NetworkManager
+  echo '[device]' > /mnt/etc/NetworkManager/conf.d/wifi_backend.conf
+  echo 'wifi.backend=iwd' >> /mnt/etc/NetworkManager/conf.d/wifi_backend.conf
+
   # Set the NetworkManager & ssh services to be enabled
   arch_chroot "systemctl enable NetworkManager.service"
-  arch_chroot "systemctl enable wpa_supplicant.service"
+  arch_chroot "systemctl enable iwd.service"
   arch_chroot "systemctl enable sshd.service"
 }
 
@@ -697,6 +701,17 @@ copy_network_config() {
 
   mkdir -p /mnt/etc/systemd/network
   cp /etc/systemd/network/* /mnt/etc/systemd/network/
+
+  print_info "Adding home wifi"
+  echo '[Security]' > /mnt/var/lib/iwd/Tux.8021x
+  echo 'EAP-Method=PEAP' >> /mnt/var/lib/iwd/Tux.8021x
+  echo 'EAP-Identity=anonymous' >> /mnt/var/lib/iwd/Tux.8021x
+  echo 'EAP-PEAP-Phase2-Method=MSCHAPV2' >> /mnt/var/lib/iwd/Tux.8021x
+  echo 'EAP-PEAP-Phase2-Identity=ben' >> /mnt/var/lib/iwd/Tux.8021x
+  echo '' >> /mnt/var/lib/iwd/Tux.8021x
+  echo '[Settings]' >> /mnt/var/lib/iwd/Tux.8021x
+  echo 'AutoConnect=true' >> /mnt/var/lib/iwd/Tux.8021x
+
 }
 
 pull_repo() {
