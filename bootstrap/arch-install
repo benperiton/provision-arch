@@ -533,9 +533,8 @@ install_base_system() {
     [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above."
     ;;
   esac
-
-  # TODO: Check if intel/AMD
-  # TODO: Need different files; amd-ucode / intel-ucode
+  
+  # Need different for vendors
   pacstrap /mnt "${VENDOR}-ucode" |& tee -a "${LOG}"
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above."
 
@@ -544,7 +543,7 @@ install_base_system() {
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 4."
 
   # Install networking tools
-  pacstrap /mnt dialog nmcli networkmanager networkmanager-l2tp xl2tpd strongswan networkmanager-strongswan iw wireless_tools wpa_supplicant wpa_actiond |& tee -a "${LOG}"
+  pacstrap /mnt dialog nmcli networkmanager networkmanager-l2tp xl2tpd strongswan networkmanager-strongswan iwd wireless_tools wpa_supplicant wpa_actiond |& tee -a "${LOG}"
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 5."
 
   # Remaining misc tools
