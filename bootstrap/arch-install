@@ -63,7 +63,7 @@ MAIN_DISK="/dev/sda"
 MAIN_DISK_NVME=""
 PRIV_USERNAME=""
 PRIV_PASSWORD=""
-WIFI_ENABLED="false"
+WIFI_ENABLED=1
 
 
 ###############################################################################
@@ -171,7 +171,7 @@ print_summary() {
 }
 
 arch_chroot() {
-  arch-chroot /mnt /bin/bash -c "${1}" "${2}" |& tee -a "${LOG}"
+  arch-chroot /mnt /bin/bash -c "${1}" "${2:-}" |& tee -a "${LOG}"
 }
 
 is_package_installed() {
@@ -304,6 +304,22 @@ ask_for_kernel_level() {
       invalid_option
     fi
   done
+}
+
+ask_for_wifi() {
+  print_title "WiFi"
+  print_title_info "Install iwd and copy network configs."
+  
+  read -rn 1 -p "Do you want to install WiFi stuff? (y/N) " WIFI_STUFF
+  if [[ $WIFI_STUFF == "" ]]; then
+    WIFI_STUFF="N"
+  fi
+
+  if [[ $WIFI_STUFF == "n" ]] || [[ $WIFI_STUFF == "N" ]]; then
+    WIFI_ENABLED=0
+    return
+  fi
+
 }
 
 ask_for_user_account() {
@@ -509,6 +525,10 @@ install_base_system() {
 }
 
 configure_wifi() {
+  if [[ $WIFI_ENABLED == 0 ]]; then
+    return
+  fi
+
   print_info "Configure WiFi"
 
   pacstrap /mnt iwd |& tee -a "${LOG}"
@@ -656,16 +676,15 @@ configure_pacman() {
   arch_chroot "yay --noconfirm --noeditmenu -S yay"
 }
 
-copy_network_config() {
+copy_wifi_config() {
+  if [[ $WIFI_ENABLED == 0 ]]; then
+    return
+  fi
+  
   print_info "Copying wifi networks (if any)"
 
   mkdir -p /mnt/var/lib/iwd
-  cp /var/lib/iwd/*.psk /mnt/var/lib/iwd/
-
-  print_info "Copying eth networks (if any)"
-
-  mkdir -p /mnt/etc/systemd/network
-  cp /etc/systemd/network/* /mnt/etc/systemd/network/
+  cp /var/lib/iwd/*.psk /mnt/var/lib/iwd/ 2>/dev/null
 
   print_info "Adding home wifi"
   echo '[Security]' > /mnt/var/lib/iwd/Tux.8021x
@@ -756,7 +775,7 @@ configure_hostname
 configure_timezone
 configure_clock
 configure_locale
-copy_network_config
+copy_wifi_config
 configure_mkinitcpio
 
 install_bootloader
