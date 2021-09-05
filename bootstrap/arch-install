@@ -50,7 +50,6 @@ echo "Start log..." >>"${LOG}"
 ###############################################################################
 SYS_ARCH=$(uname -m) # Architecture (x86_64)
 UEFI=0
-XPINGS=0 # Connection check
 KEYMAP="uk"
 VENDOR="intel"
 
@@ -172,7 +171,7 @@ print_summary() {
 }
 
 arch_chroot() {
-  arch-chroot /mnt /bin/bash -c "${1}" |& tee -a "${LOG}"
+  arch-chroot /mnt /bin/bash -c "${1}" "${2}" |& tee -a "${LOG}"
 }
 
 is_package_installed() {
@@ -512,13 +511,14 @@ install_base_system() {
 configure_wifi() {
   print_info "Configure WiFi"
 
+  pacstrap /mnt iwd |& tee -a "${LOG}"
+  [[ $? -ne 0 ]] && error_msg "Installing wifi system to /mnt failed."
+
   # Use iwd with NetworkManager
   echo '[device]' > /mnt/etc/NetworkManager/conf.d/wifi_backend.conf
   echo 'wifi.backend=iwd' >> /mnt/etc/NetworkManager/conf.d/wifi_backend.conf
 
-  pacstrap /mnt iwd |& tee -a "${LOG}"
-
-  arch_chroot "systemctl enable iwd.service"
+  arch_chroot "systemctl enable iwd"
 }
 
 configure_keymap() {
@@ -651,8 +651,8 @@ configure_pacman() {
   arch_chroot "pacman -Sy"
 
   print_info "Install yay"
-  arch_chroot "git pull https://aur.archlinux.org/yay.git /tmp"
-  arch_chroot "cd /tmp/yay && makepkg --noconfirm -si"
+  arch_chroot "git clone https://aur.archlinux.org/yay.git /tmp/yay"
+  arch_chroot "cd /tmp/yay && makepkg --noconfirm -si" "-u nobody"
   arch_chroot "yay --noconfirm --noeditmenu -S yay"
 }
 
@@ -749,12 +749,14 @@ format_partitions
 mount_partitions
 
 install_base_system
+configure_wifi
 configure_keymap
 configure_fstab
 configure_hostname
 configure_timezone
 configure_clock
 configure_locale
+copy_network_config
 configure_mkinitcpio
 
 install_bootloader
@@ -763,10 +765,7 @@ configure_sudo
 copy_mirrorlist
 configure_pacman
 
-configure_wifi
-copy_network_config
-
 setup_user_account
-#pull_repo
+pull_repo
 
 wrap_up
