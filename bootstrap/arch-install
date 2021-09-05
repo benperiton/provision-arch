@@ -64,6 +64,7 @@ MAIN_DISK="/dev/sda"
 MAIN_DISK_NVME=""
 PRIV_USERNAME=""
 PRIV_PASSWORD=""
+WIFI_ENABLED="false"
 
 
 ###############################################################################
@@ -228,56 +229,6 @@ check_boot_system() {
   else
     UEFI=0
     error_msg "ERROR! You must execute the script on a machine capable of UEFI."
-  fi
-}
-
-check_connection() {
-  XPINGS=$((XPINGS + 1))
-  connection_test() {
-    ping -q -w 1 -c 1 "$(ip r | grep default | awk 'NR==1 {print $3}')" &>/dev/null && return 1 || return 0
-  }
-  WIRED_DEV=$(ip link | grep "ens\|eno\|enp" | awk '{print $2}' | sed 's/://' | sed '1!d')
-  WIRELESS_DEV=$(ip link | grep wlp | awk '{print $2}' | sed 's/://' | sed '1!d')
-  if connection_test; then
-    print_warning "ERROR! Connection not Found."
-    print_info "Network Setup"
-    local _connection_opts=("Wired Automatic" "Wired Manual" "Wireless" "Skip")
-    PS3="Enter your option: "
-    # shellcheck disable=SC2034
-    select CONNECTION_TYPE in "${_connection_opts[@]}"; do
-      case "$REPLY" in
-      1)
-        systemctl start "dhcpcd@${WIRED_DEV}.service"
-        break
-        ;;
-      2)
-        systemctl stop "dhcpcd@${WIRED_DEV}.service"
-        read -rp "IP Address: " IP_ADDR
-        read -rp "Submask: " SUBMASK
-        read -rp "Gateway: " GATEWAY
-        ip link set "${WIRED_DEV}" up
-        ip addr add "${IP_ADDR}/${SUBMASK}" dev "${WIRED_DEV}"
-        ip route add default via "${GATEWAY}"
-        break
-        ;;
-      3)
-        wifi-menu "${WIRELESS_DEV}"
-        break
-        ;;
-      4)
-        error_msg "No network setup, exiting."
-        break
-        ;;
-      *)
-        invalid_option
-        ;;
-      esac
-    done
-    if [[ $XPINGS -gt 2 ]]; then
-      print_warning "Can't establish connection. exiting..."
-      exit 1
-    fi
-    [[ $REPLY -ne 5 ]] && check_connection
   fi
 }
 
@@ -543,24 +494,31 @@ install_base_system() {
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 4."
 
   # Install networking tools
-  pacstrap /mnt dialog networkmanager networkmanager-l2tp xl2tpd strongswan networkmanager-strongswan iwd |& tee -a "${LOG}"
+  pacstrap /mnt dialog networkmanager networkmanager-l2tp xl2tpd strongswan networkmanager-strongswan |& tee -a "${LOG}"
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 5."
 
   # Remaining misc tools
-  pacstrap /mnt reflector git nano vim openssh ansible terminus-font ttf-fira-code gnupg |& tee -a "${LOG}"
+  pacstrap /mnt reflector git nano vim openssh ansible terminus-font gnupg |& tee -a "${LOG}"
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 6."
 
   # Add the ssh group
   arch_chroot "groupadd ssh"
 
+  # Set the NetworkManager & ssh services to be enabled
+  arch_chroot "systemctl enable NetworkManager.service"
+  arch_chroot "systemctl enable sshd.service"
+}
+
+configure_wifi() {
+  print_info "Configure WiFi"
+
   # Use iwd with NetworkManager
   echo '[device]' > /mnt/etc/NetworkManager/conf.d/wifi_backend.conf
   echo 'wifi.backend=iwd' >> /mnt/etc/NetworkManager/conf.d/wifi_backend.conf
 
-  # Set the NetworkManager & ssh services to be enabled
-  arch_chroot "systemctl enable NetworkManager.service"
+  pacstrap /mnt iwd |& tee -a "${LOG}"
+
   arch_chroot "systemctl enable iwd.service"
-  arch_chroot "systemctl enable sshd.service"
 }
 
 configure_keymap() {
@@ -662,7 +620,7 @@ install_bootloader() {
 
 configure_sudo() {
   print_info "Configuring sudo..."
-  echo '%wheel ALL=(ALL) ALL' >>/mnt/etc/sudoers.d/wheel
+  echo '%wheel ALL=(ALL) ALL' >> /mnt/etc/sudoers.d/wheel
   chmod 440 /mnt/etc/sudoers.d/wheel
 }
 
@@ -689,6 +647,13 @@ configure_pacman() {
   echo '[archlinuxfr]' >> /mnt/etc/pacman.conf
   echo 'SigLevel = Never' >> /mnt/etc/pacman.conf
   echo 'Server = http://repo.archlinux.fr/$arch' >> /mnt/etc/pacman.conf
+
+  arch_chroot "pacman -Sy"
+
+  print_info "Install yay"
+  arch_chroot "git pull https://aur.archlinux.org/yay.git /tmp"
+  arch_chroot "cd /tmp/yay && makepkg --noconfirm -si"
+  arch_chroot "yay --noconfirm --noeditmenu -S yay"
 }
 
 copy_network_config() {
@@ -731,14 +696,6 @@ setup_user_account() {
   arch_chroot "usermod -a -G ssh ${PRIV_USERNAME}"
 }
 
-stamp_build() {
-  print_info "Stamping build"
-  # Stamp the build
-  mkdir -p /mnt/srv/provision-stamps
-  date --iso-8601=seconds | sudo tee /mnt/srv/provision-stamps/box_build_time
-  cp "${LOG}" /mnt/srv/provision-stamps/arch-install.log
-}
-
 copy_mirrorlist() {
   print_info "Copying mirrorlist"
 
@@ -755,9 +712,7 @@ copy_mirrorlist() {
 
 wrap_up() {
   print_title "INSTALL COMPLETED"
-  print_success "After reboot you can configure users, install software."
-  print_success "This script pulled its Github repo containing Ansible scripts to /srv/provision-arch."
-  print_success "Generally after rebooting I run Ansible to fully install and configure the machine."
+  print_success "Reboot, login, and run ansible scripts."
   blank_line
 }
 
@@ -809,10 +764,10 @@ configure_sudo
 copy_mirrorlist
 configure_pacman
 
+configure_wifi
 copy_network_config
 
 setup_user_account
-pull_repo
-stamp_build
+#pull_repo
 
 wrap_up
