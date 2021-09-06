@@ -646,7 +646,7 @@ configure_sudo() {
 
 
   # Some things I just don't want a password for
-  echo "${PRIV_USERNAME} ALL=NOPASSWD: /usr/bin/pacman, /usr/bin/makepkg, /usr/bin/ufw" >> /mnt/etc/sudoers.d/me
+  echo "${PRIV_USERNAME} ALL=(ALL) NOPASSWD: /usr/bin/pacman, /usr/bin/makepkg, /usr/bin/ufw" >> /mnt/etc/sudoers.d/me
   chmod 440 /mnt/etc/sudoers.d/me
 }
 
@@ -675,10 +675,12 @@ configure_pacman() {
   echo 'Server = http://repo.archlinux.fr/$arch' >> /mnt/etc/pacman.conf
 
   arch_chroot "pacman -Sy"
+}
 
+install_yay() {
   print_info "Install yay"
   
-  arch_chroot "cd /tmp && curl -OL https://github.com/Jguer/yay/releases/download/v10.3.1/yay_10.3.1_x86_64.tar.gz && sudo pacman -U yay_10.3.1_x86_64.tar.gz"
+  arch_chroot "su ben && git clone https://aur.archlinux.org/yay-bin.git && cd yay-bin && makepkg -si && rm -rf yay-bin"
 }
 
 copy_wifi_config() {
@@ -784,6 +786,7 @@ install_bootloader
 configure_sudo
 copy_mirrorlist
 configure_pacman
+install_yay
 
 copy_wifi_config
 
