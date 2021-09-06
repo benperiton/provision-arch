@@ -464,9 +464,8 @@ format_partitions() {
 mount_partitions() {
   print_info "Mounting partitions"
 
-  # First load the root and boot
+  # First load the root
   mount -t ext4 -o defaults,rw,relatime,errors=remount-ro /dev/vg/root /mnt
-  mount -t vfat -o defaults,rw,relatime,utf8,errors=remount-ro "${MAIN_DISK}${MAIN_DISK_NVME}1" /mnt/boot
   
   # Make sure we have mount paths for the rest
   mkdir -p "/mnt/boot"
@@ -474,8 +473,10 @@ mount_partitions() {
   mkdir -p "/mnt/home"
 
   # Mount the rest
+  mount -t vfat -o defaults,rw,relatime,utf8,errors=remount-ro "${MAIN_DISK}${MAIN_DISK_NVME}1" /mnt/boot
   mount -t ext4 -o defaults,rw,relatime /dev/vg/data /mnt/data
   mount -t ext4 -o defaults,rw,relatime /dev/vg/home /mnt/home
+
   swapon /dev/vg/swap
 }
 
@@ -645,13 +646,14 @@ install_bootloader() {
 configure_sudo() {
   print_info "Configuring sudo..."
 
-  echo '%wheel ALL=(ALL) ALL' >> /mnt/etc/sudoers.d/wheel
-  chmod 440 /mnt/etc/sudoers.d/wheel
+  # Use numbered, as sudo takes last matching value, so want mine to be last
+  echo '%wheel ALL=(ALL) ALL' >> /mnt/etc/sudoers.d/10-wheel
+  chmod 440 /mnt/etc/sudoers.d/10-wheel
 
 
   # Some things I just don't want a password for
-  echo "${PRIV_USERNAME} ALL=(ALL) NOPASSWD: /usr/bin/pacman, /usr/bin/makepkg, /usr/bin/ufw" >> /mnt/etc/sudoers.d/me
-  chmod 440 /mnt/etc/sudoers.d/me
+  echo "${PRIV_USERNAME} ALL=(ALL) NOPASSWD: /usr/bin/pacman, /usr/bin/makepkg, /usr/bin/ufw" >> /mnt/etc/sudoers.d/80-me
+  chmod 440 /mnt/etc/sudoers.d/80-me
 }
 
 configure_pacman() {
@@ -684,7 +686,7 @@ configure_pacman() {
 install_yay() {
   print_info "Install yay"
   
-  #arch_chroot "su ben && git clone https://aur.archlinux.org/yay-bin.git && cd yay-bin && sudo makepkg --noconfirm -si && rm -rf yay-bin"
+  arch_chroot 'su ben -c "git clone https://aur.archlinux.org/yay-bin.git /home/ben/yay && cd /home/ben/yay && sudo makepkg --noconfirm -si && rm -rf /home/ben/yay'
 }
 
 copy_wifi_config() {
@@ -692,11 +694,11 @@ copy_wifi_config() {
     return
   fi
 
-  print_info "Copying wifi networks (if any)"
-
   mkdir -p /mnt/var/lib/iwd
 
-  cp /var/lib/iwd/*.psk /mnt/var/lib/iwd/ &>/dev/null
+  print_info "Copying wifi networks (if any)"
+  # Hide exit code as well to stop the trap from getting hold of it
+  cp /var/lib/iwd/*.psk /mnt/var/lib/iwd/ 2>/dev/null || :
 
   print_info "Adding home wifi"
   echo '[Security]' > /mnt/var/lib/iwd/Tux.8021x
@@ -758,6 +760,7 @@ check_boot_system
 ask_for_hostname
 ask_for_main_disk
 ask_for_kernel_level
+ask_for_wifi
 ask_for_user_account
 ask_for_user_password
 
