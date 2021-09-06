@@ -680,10 +680,11 @@ copy_wifi_config() {
   if [[ $WIFI_ENABLED == 0 ]]; then
     return
   fi
-  
+
   print_info "Copying wifi networks (if any)"
 
   mkdir -p /mnt/var/lib/iwd
+
   cp /var/lib/iwd/*.psk /mnt/var/lib/iwd/ 2>/dev/null
 
   print_info "Adding home wifi"
@@ -696,13 +697,6 @@ copy_wifi_config() {
   echo '[Settings]' >> /mnt/var/lib/iwd/Tux.8021x
   echo 'AutoConnect=true' >> /mnt/var/lib/iwd/Tux.8021x
 
-}
-
-pull_repo() {
-  print_info "Pulling repo"
-  mkdir -p /mnt/srv/provision-arch
-  arch_chroot "git clone https://github.com/benperiton/provision-arch.git /srv/provision-arch"
-  arch_chroot "chown -R ben:ben /srv/provision-arch"
 }
 
 setup_user_account() {
@@ -775,7 +769,6 @@ configure_hostname
 configure_timezone
 configure_clock
 configure_locale
-copy_wifi_config
 configure_mkinitcpio
 
 install_bootloader
@@ -784,7 +777,7 @@ configure_sudo
 copy_mirrorlist
 configure_pacman
 
+copy_wifi_config
 setup_user_account
-pull_repo
 
 wrap_up
