@@ -513,7 +513,7 @@ install_base_system() {
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 5."
 
   # Remaining misc tools
-  pacstrap /mnt reflector git nano vim openssh ansible terminus-font gnupg |& tee -a "${LOG}"
+  pacstrap /mnt reflector git nano vim openssh ansible terminus-font gnupg ccid |& tee -a "${LOG}"
   [[ $? -ne 0 ]] && error_msg "Installing base system to /mnt failed. Check error messages above. Part 6."
 
   # Add the ssh group
@@ -640,8 +640,14 @@ install_bootloader() {
 
 configure_sudo() {
   print_info "Configuring sudo..."
+
   echo '%wheel ALL=(ALL) ALL' >> /mnt/etc/sudoers.d/wheel
   chmod 440 /mnt/etc/sudoers.d/wheel
+
+
+  # Some things I just don't want a password for
+  echo "${PRIV_USERNAME} ALL=NOPASSWD: /usr/bin/pacman, /usr/bin/makepkg, /usr/bin/ufw" >> /mnt/etc/sudoers.d/me
+  chmod 440 /mnt/etc/sudoers.d/me
 }
 
 configure_pacman() {
@@ -671,9 +677,8 @@ configure_pacman() {
   arch_chroot "pacman -Sy"
 
   print_info "Install yay"
-  arch_chroot "git clone https://aur.archlinux.org/yay.git /tmp/yay"
-  arch_chroot "cd /tmp/yay && makepkg --noconfirm -si" "-u nobody"
-  arch_chroot "yay --noconfirm --noeditmenu -S yay"
+  
+  arch_chroot "cd /tmp && curl -OL https://github.com/Jguer/yay/releases/download/v10.3.1/yay_10.3.1_x86_64.tar.gz && sudo pacman -U yay_10.3.1_x86_64.tar.gz"
 }
 
 copy_wifi_config() {
@@ -685,7 +690,7 @@ copy_wifi_config() {
 
   mkdir -p /mnt/var/lib/iwd
 
-  cp /var/lib/iwd/*.psk /mnt/var/lib/iwd/ 2>/dev/null
+  cp /var/lib/iwd/*.psk /mnt/var/lib/iwd/ &>/dev/null
 
   print_info "Adding home wifi"
   echo '[Security]' > /mnt/var/lib/iwd/Tux.8021x
@@ -705,7 +710,7 @@ setup_user_account() {
   arch_chroot "useradd -m -G wheel -s /bin/bash ${PRIV_USERNAME}"
   arch_chroot "echo -n '${PRIV_USERNAME}:${PRIV_PASSWORD}' | chpasswd -c SHA512"
 
-  # Add user to the ssh group
+  # Add me to the ssh group
   arch_chroot "usermod -a -G ssh ${PRIV_USERNAME}"
 }
 
@@ -762,6 +767,9 @@ format_partitions
 mount_partitions
 
 install_base_system
+
+setup_user_account
+
 configure_wifi
 configure_keymap
 configure_fstab
@@ -778,6 +786,5 @@ copy_mirrorlist
 configure_pacman
 
 copy_wifi_config
-setup_user_account
 
 wrap_up
