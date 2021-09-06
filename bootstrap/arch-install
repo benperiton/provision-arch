@@ -2,12 +2,11 @@
 
 ###############################################################################
 # 
-# curl -fsSL
-# -f  
-# -s  
-# -S  Silent
-# -L  Follow location
+# bash <(curl -fsSL https://git.io/JEAM6)
+# OR
+# curl -OSL https://git.io/JEAM6
 # 
+# Configures Arch, yay, wifi, sudoers, partitions etc
 # 
 ###############################################################################
 
