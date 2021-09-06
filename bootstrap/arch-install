@@ -680,7 +680,7 @@ configure_pacman() {
 install_yay() {
   print_info "Install yay"
   
-  arch_chroot "su ben && git clone https://aur.archlinux.org/yay-bin.git && cd yay-bin && makepkg -si && rm -rf yay-bin"
+  arch_chroot "su ben && git clone https://aur.archlinux.org/yay-bin.git && cd yay-bin && sudo makepkg --noconfirm -si && rm -rf yay-bin"
 }
 
 copy_wifi_config() {
