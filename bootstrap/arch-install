@@ -171,15 +171,7 @@ print_summary() {
 }
 
 arch_chroot() {
-  arch-chroot /mnt /bin/bash -c "${1}" "${2:-}" |& tee -a "${LOG}"
-}
-
-is_package_installed() {
-  #check if a package is already installed
-  for PKG in $1; do
-    pacman -Q "$PKG" &>/dev/null && return 0
-  done
-  return 1
+  arch-chroot /mnt /bin/bash -c "${1}" |& tee -a "${LOG}"
 }
 
 
