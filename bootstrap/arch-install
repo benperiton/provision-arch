@@ -459,12 +459,10 @@ mount_partitions() {
   
   # Make sure we have mount paths for the rest
   mkdir -p "/mnt/boot"
-  mkdir -p "/mnt/data"
   mkdir -p "/mnt/home"
 
   # Mount the rest
   mount -t vfat -o defaults,rw,relatime,utf8,errors=remount-ro "${MAIN_DISK}${MAIN_DISK_NVME}1" /mnt/boot
-  mount -t ext4 -o defaults,rw,relatime /dev/vg/data /mnt/data
   mount -t ext4 -o defaults,rw,relatime /dev/vg/home /mnt/home
 
   swapon /dev/vg/swap
