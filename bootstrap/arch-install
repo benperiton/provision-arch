@@ -429,15 +429,14 @@ setup_lvm() {
   pvcreate /dev/mapper/cryptdisk
   vgcreate "vg" /dev/mapper/cryptdisk
 
-  # Enough for hibernate
-  lvcreate -L 12GB "vg" -n swap
+  # This is never gonna be used .. but better safe
+  lvcreate -L 8GB "vg" -n swap
 
-  # Just a small one to keep anything locally in case of re-install
-  lvcreate -L 5GB "vg" -n data
-  
+  # Don't need a lot for / - 64 should be plenty
+  lvcreate -L 64GB "vg" -n root
+
   # Spit the remaining equally
-  lvcreate -l 50%VG "vg" -n root
-  lvcreate -l 50%VG "vg" -n home
+  lvcreate -l 100%VG "vg" -n home
 }
 
 format_partitions() {
@@ -447,7 +446,6 @@ format_partitions() {
   mkfs.vfat -F32 "${MAIN_DISK}${MAIN_DISK_NVME}1"
   
   # Now the LVM partitions...
-  mkfs.ext4 "/dev/vg/data"
   mkfs.ext4 "/dev/vg/root"
   mkfs.ext4 "/dev/vg/home"
   mkswap "/dev/vg/swap"
